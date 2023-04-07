@@ -24,7 +24,8 @@ class Game:
             "first_talked_to_omar": False,
             "no_move": False,
             "can_shift_modes": True,
-            "current_course_won": False
+            "current_course_won": False,
+            "getting_ball_trajectory": False
             }
 
 class FracNoiseAlgo:
@@ -170,3 +171,6 @@ class GolfCourse:
         self.ball_x, self.ball_y = 0,0
         self.flag = None
         self.flag_x, self.flag_y = 0,0
+        self.new_ball_x, self.new_ball_y = 0,0
+        self.trajectory_frame_offset = 0
+        self.ball_trajectory_points = []

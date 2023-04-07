@@ -125,18 +125,6 @@ def shift_to_rpg():
     game.current_NPCs[0].x, game.current_NPCs[0].y = game.current_NPCs[0].current_block.x, game.current_NPCs[0].current_block.y
     game.current_NPCs[0].current_block.content = game.current_NPCs[0]
 
-    # if not game.rpg_grid:
-    #     game.rpg_grid = gen_fnoise_grid()
-    #     player.current_block = get_random_nonwater_block_from_grid(game.rpg_grid)
-    #     player.x, player.y = player.current_block.x, player.current_block.y
-    #     player.current_block.content = player
-
-    #     game.current_NPCs.append(game.all_NPCs["gwendolina"])
-    #     for npc in game.current_NPCs:
-    #         block = get_random_nonwater_block_from_grid(game.rpg_grid)
-    #         npc.x, npc.y = block.x, block.y
-    #         block.content = npc
-
     game.game_state = game.possible_game_states[1]
 
 def shift_to_golf():
@@ -201,6 +189,64 @@ def draw_results():
 
     draw_text_box(screen=screen, message=f'you won in {player.current_stroke_count} strokes and earned {player.last_earned_exp} exp! press backspace to return')
 
+def get_ball_trajectory_points(course):
+
+    """Bresenham's Line Algorithm
+    Produces a list of tuples from start and end
+
+    >>> points1 = get_line((0, 0), (3, 4))
+    >>> points2 = get_line((3, 4), (0, 0))
+    >>> assert(set(points1) == set(points2))
+    >>> print points1
+    [(0, 0), (1, 1), (1, 2), (2, 3), (3, 4)]
+    >>> print points2
+    [(3, 4), (2, 3), (1, 2), (1, 1), (0, 0)]
+    """
+    # Setup initial conditions
+    x1, y1 = course.ball_x, course.ball_y
+    x2, y2 = course.new_ball_x, course.new_ball_y
+    dx = x2 - x1
+    dy = y2 - y1
+
+    # Determine how steep the line is
+    is_steep = abs(dy) > abs(dx)
+
+    # Rotate line
+    if is_steep:
+        x1, y1 = y1, x1
+        x2, y2 = y2, x2
+
+    # Swap start and end points if necessary and store swap state
+    swapped = False
+    if x1 > x2:
+        x1, x2 = x2, x1
+        y1, y2 = y2, y1
+        swapped = True
+
+    # Recalculate differentials
+    dx = x2 - x1
+    dy = y2 - y1
+
+    # Calculate error
+    error = int(dx / 2.0)
+    ystep = 1 if y1 < y2 else -1
+
+    # Iterate over bounding box generating points between start and end
+    y = y1
+    points = []
+    for x in range(x1, x2 + 1):
+        coord = (y, x) if is_steep else (x, y)
+        points.append(coord)
+        error -= abs(dy)
+        if error < 0:
+            y += ystep
+            error += dx
+
+    # Reverse the list if the coordinates were swapped
+    if swapped:
+        points.reverse()
+    return points
+
 def draw_golf():
     for row in game.current_golf_course.grid:
         for block in row:
@@ -210,7 +256,29 @@ def draw_golf():
     game.current_golf_course.ball.draw(surface=screen, x=game.current_golf_course.ball_x, y=game.current_golf_course.ball_y)
     if (game.current_golf_course.ball_x, game.current_golf_course.ball_y) != (game.current_golf_course.tee_x, game.current_golf_course.tee_y):
         game.current_golf_course.tee.draw(surface=screen, x=game.current_golf_course.tee_x, y=game.current_golf_course.tee_y)
-    
+
+    if game.current_golf_course.ball_x == game.current_golf_course.new_ball_x and game.current_golf_course.ball_y == game.current_golf_course.new_ball_y:
+        game.flags["getting_ball_trajectory"] = False
+        game.current_golf_course.trajectory_frame_offset = 0
+        game.current_golf_course.ball_trajectory_points = []
+
+    if game.flags["getting_ball_trajectory"]:
+        game.current_golf_course.ball_x, game.current_golf_course.ball_y = game.current_golf_course.ball_trajectory_points[game.current_golf_course.trajectory_frame_offset]
+        if game.current_golf_course.trajectory_frame_offset < len(game.current_golf_course.ball_trajectory_points):
+            game.current_golf_course.trajectory_frame_offset += 1
+
+    if game.flags["getting_ball_trajectory"] == False:
+        if game.current_golf_course.grid[game.current_golf_course.new_ball_y][game.current_golf_course.new_ball_x].terrain in WATER_TERRAINS:
+            print('in the drink')
+            game.current_golf_course.ball_x, game.current_golf_course.ball_y = game.current_golf_course.tee_x, game.current_golf_course.tee_y
+        elif game.current_golf_course.ball_x == game.current_golf_course.flag_x and game.current_golf_course.ball_y == game.current_golf_course.flag_y:
+            print('you win')
+            game.flags["current_course_won"] = True
+            game.flags["can_shift_modes"] = True
+
+    if player.shot_power != None:
+        draw_text_box(screen=screen, message=f'shot power = {player.shot_power}')
+
     if game.flags["current_course_won"]:
         draw_text_box(screen=screen, message='you win! press space for results')
 
@@ -399,20 +467,16 @@ while True:
                         player.shot_power = None
                         player.current_stroke_count += 1
 
-                        new_ball_x = game.current_golf_course.ball_x + x_part
-                        new_ball_y = game.current_golf_course.ball_y + y_part
-                        new_ball_x = clamp_to_int(new_ball_x, 0, GRID_WIDTH - 1)
-                        new_ball_y = clamp_to_int(new_ball_y, 0, GRID_HEIGHT - 1)
+                        game.current_golf_course.new_ball_x = game.current_golf_course.ball_x + x_part
+                        game.current_golf_course.new_ball_y = game.current_golf_course.ball_y + y_part
+                        game.current_golf_course.new_ball_x = clamp_to_int(game.current_golf_course.new_ball_x, 0, GRID_WIDTH - 1)
+                        game.current_golf_course.new_ball_y = clamp_to_int(game.current_golf_course.new_ball_y, 0, GRID_HEIGHT - 1)
 
-                        if game.current_golf_course.grid[new_ball_y][new_ball_x].terrain in WATER_TERRAINS:
-                            print('in the drink')
-                            game.current_golf_course.ball_x, game.current_golf_course.ball_y = game.current_golf_course.tee_x, game.current_golf_course.tee_y
-                        else:
-                            game.current_golf_course.ball_x, game.current_golf_course.ball_y = new_ball_x, new_ball_y
-                        if game.current_golf_course.ball_x == game.current_golf_course.flag_x and game.current_golf_course.ball_y == game.current_golf_course.flag_y:
-                            print('you win')
-                            game.flags["current_course_won"] = True
-                            game.flags["can_shift_modes"] = True
+                        game.flags["getting_ball_trajectory"] = True
+
+                        game.current_golf_course.ball_trajectory_points = get_ball_trajectory_points(game.current_golf_course)
+                        
+                        
 
             ### RESULTS MODE ###
 
@@ -429,5 +493,6 @@ while True:
     if game.game_state == game.possible_game_states[3]:
         draw_results()
 
+    print(game.flags["getting_ball_trajectory"])
     pygame.display.update()
     game.clock.tick(FPS)
