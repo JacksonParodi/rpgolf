@@ -20,7 +20,7 @@ def gen_flat_grid():
     for y in range(0, GRID_HEIGHT):
         row = []
         for x in range(0, GRID_WIDTH):
-            row.append(Block(x=x, y=y, heat=1))
+            row.append(Block(x=x, y=y))
         grid.append(row)
     return grid
 
@@ -29,7 +29,7 @@ def gen_menu_grid():
     for y in range(0, GRID_HEIGHT):
         row = []
         for x in range(0, GRID_WIDTH):
-            row.append(MenuBlock(x=x, y=y, gradient_index=0))
+            row.append(MenuBlock(x=x, y=y))
         grid.append(row)
     return grid
 
@@ -49,9 +49,17 @@ def gen_fnoise_grid():
                 t_freq *= fnoise.lacunarity
                 t_amp *= fnoise.persistence
             heat = clamp_to_int(elevation, fnoise.min_block_heat, fnoise.max_block_heat)
-            # int(max(fnoise.min_block_heat, min(elevation, fnoise.max_block_heat)))
             row.append(Block(x=x, y=y, heat=heat))
         grid.append(row)
+    return grid
+
+def gen_country_club():
+    grid = gen_flat_grid()
+
+    for row in grid:
+        for block in row:
+            block.heat = MAX_BLOCK_HEAT // 2
+
     return grid
 
 def gen_golf_features(course):
@@ -100,18 +108,31 @@ def omar_speak():
 def shift_to_rpg():
     game.flags["no_move"] = False
     game.flags["can_shift_modes"] = False
-    game.game_state = game.possible_game_states[1]
-    if not game.rpg_grid:
-        game.rpg_grid = gen_fnoise_grid()
-        player.current_block = get_random_nonwater_block_from_grid(game.rpg_grid)
-        player.x, player.y = player.current_block.x, player.current_block.y
-        player.current_block.content = player
 
+    game.rpg_grid = gen_country_club()
+
+    player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
+    player.x, player.y = player.current_block.x, player.current_block.y
+    player.current_block.content = player
+
+    if game.all_NPCs["gwendolina"] not in game.current_NPCs:
         game.current_NPCs.append(game.all_NPCs["gwendolina"])
-        for npc in game.current_NPCs:
-            block = get_random_nonwater_block_from_grid(game.rpg_grid)
-            npc.x, npc.y = block.x, block.y
-            block.content = npc
+    
+    game.current_NPCs[0].current_block = game.rpg_grid[(GRID_WIDTH // 2) + 4][GRID_HEIGHT // 2]
+    game.current_NPCs[0].x, game.current_NPCs[0].y = game.current_NPCs[0].current_block.x, game.current_NPCs[0].current_block.y
+    game.current_NPCs[0].current_block.content = game.current_NPCs[0]
+
+    # if not game.rpg_grid:
+    #     game.rpg_grid = gen_fnoise_grid()
+    #     player.current_block = get_random_nonwater_block_from_grid(game.rpg_grid)
+    #     player.x, player.y = player.current_block.x, player.current_block.y
+    #     player.current_block.content = player
+
+    #     game.current_NPCs.append(game.all_NPCs["gwendolina"])
+    #     for npc in game.current_NPCs:
+    #         block = get_random_nonwater_block_from_grid(game.rpg_grid)
+    #         npc.x, npc.y = block.x, block.y
+    #         block.content = npc
 
     game.game_state = game.possible_game_states[1]
 
@@ -131,6 +152,7 @@ def shift_to_golf():
 
 def shift_to_results():
     game.flags["can_shift_modes"] = True
+    game.flags["current_course_won"] = False
     player.earn_exp_from_course()
     player.courses_completed += 1
 
@@ -172,6 +194,8 @@ def draw_results():
         for block in row:
             block.draw(screen)
 
+    two_color_gradient_anim(start_color=[128,0,0], end_color=[32,128,0], game=game)
+
     draw_text_box(screen=screen, message=f'you won in {player.current_stroke_count} strokes and earned {player.last_earned_exp} exp! press backspace to return')
 
 def draw_golf():
@@ -183,6 +207,10 @@ def draw_golf():
     game.current_golf_course.ball.draw(surface=screen, x=game.current_golf_course.ball_x, y=game.current_golf_course.ball_y)
     if (game.current_golf_course.ball_x, game.current_golf_course.ball_y) != (game.current_golf_course.tee_x, game.current_golf_course.tee_y):
         game.current_golf_course.tee.draw(surface=screen, x=game.current_golf_course.tee_x, y=game.current_golf_course.tee_y)
+    
+    if game.flags["current_course_won"]:
+        draw_text_box(screen=screen, message='you win! press space for results')
+
 
 def draw_rpg():
     for row in game.rpg_grid:
@@ -199,8 +227,16 @@ def draw_menu():
         for block in row:
             block.draw(screen)
  
-    start_color=[0,96,128]
-    end_color=[0,128,96]
+    two_color_gradient_anim(start_color=[0,96,128], end_color=[0,128,96], game=game)
+
+    line_y = 0
+    for line in game.menu_text:
+        rendered_line = game.font.render(line, False, 'silver')
+        line_width, line_height = rendered_line.get_width(), rendered_line.get_height()
+        screen.blit(rendered_line, (((WIDTH // 2) - (line_width // 2)), ((HEIGHT // 2) + (2* line_y))))
+        line_y += line_height
+
+def two_color_gradient_anim(start_color, end_color, game):
 
     color_gradient = get_2color_gradient(start_color=start_color, end_color=end_color, steps=128)
 
@@ -211,13 +247,6 @@ def draw_menu():
             color_index = color_index % len(color_gradient)
             game.menu_grid[y][x].color = color_gradient[color_index]
     game.gradient_frame_offset += 1
-
-    line_y = 0
-    for line in game.menu_text:
-        rendered_line = game.font.render(line, False, 'silver')
-        line_width, line_height = rendered_line.get_width(), rendered_line.get_height()
-        screen.blit(rendered_line, (((WIDTH // 2) - (line_width // 2)), ((HEIGHT // 2) + (2* line_y))))
-        line_y += line_height
 
 def swing(power, ball_x, ball_y, flag_x, flag_y):
     angle = math.atan2(flag_y - ball_y, flag_x - ball_x)
@@ -359,9 +388,9 @@ while True:
                         player.shot_power = (player.shot_power * 10) + 9
 
                 if keys[pygame.K_SPACE]:
-                    print('power', player.shot_power)
+                    if game.flags["current_course_won"]:
+                        shift_to_results()
                     if player.shot_power:
-                        print('pre-shot', game.current_golf_course.ball_x, game.current_golf_course.ball_y)
                         x_part, y_part = swing(power=player.shot_power,
                                                 ball_x=game.current_golf_course.ball_x, ball_y=game.current_golf_course.ball_y,
                                                 flag_x=game.current_golf_course.flag_x, flag_y = game.current_golf_course.flag_y)
@@ -378,12 +407,10 @@ while True:
                             game.current_golf_course.ball_x, game.current_golf_course.ball_y = game.current_golf_course.tee_x, game.current_golf_course.tee_y
                         else:
                             game.current_golf_course.ball_x, game.current_golf_course.ball_y = new_ball_x, new_ball_y
-                        print('post-shot', game.current_golf_course.ball_x, game.current_golf_course.ball_y)
                         if game.current_golf_course.ball_x == game.current_golf_course.flag_x and game.current_golf_course.ball_y == game.current_golf_course.flag_y:
                             print('you win')
-                            
+                            game.flags["current_course_won"] = True
                             game.flags["can_shift_modes"] = True
-                            shift_to_results()
 
             ### RESULTS MODE ###
 

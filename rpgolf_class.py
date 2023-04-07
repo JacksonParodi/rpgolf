@@ -23,7 +23,8 @@ class Game:
             "first_talked_to_gwendolina": False,
             "first_talked_to_omar": False,
             "no_move": False,
-            "can_shift_modes": True
+            "can_shift_modes": True,
+            "current_course_won": False
             }
 
 class FracNoiseAlgo:
@@ -38,11 +39,10 @@ class FracNoiseAlgo:
         self.persistence = PERSISTENCE
 
 class MenuBlock:
-    def __init__(self, x, y, gradient_index, color=[0,0,128], size=BLOCK_SIZE):
+    def __init__(self, x, y, color=[0,0,128], size=BLOCK_SIZE):
         self.x = x
         self.y = y
         self.color = pygame.Color(color[0], color[1], color[2])
-        self.gradient_index = gradient_index
         self.is_changing_color = False
         self.size = size
 
@@ -133,6 +133,7 @@ class NPC:
     def __init__(self, name, img, speak_func):
         self.name = name
         self.img = pygame.image.load(img).convert_alpha()
+        self.current_block = None
         self.speak_func = speak_func
         self.talking = False
         self.current_message = 'hello golfer'
