@@ -72,6 +72,10 @@ class Block:
         self.color = self.get_block_color(self.terrain)
         self.content = None
 
+    def heat_update(self):
+        self.terrain = self.get_block_terrain(self.heat)
+        self.color = self.get_block_color(self.terrain)
+
     def get_block_color(self, terrain):
         if terrain == 'deep_ocean':
             color = 'darkblue'

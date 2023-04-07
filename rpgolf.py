@@ -59,6 +59,9 @@ def gen_country_club():
     for row in grid:
         for block in row:
             block.heat = MAX_BLOCK_HEAT // 2
+            if block.x in range(4) or block.x in range((GRID_WIDTH - 4), GRID_WIDTH) or block.y in range(4) or block.y in range((GRID_HEIGHT - 4), GRID_HEIGHT):
+                block.heat = 1
+                block.heat_update()
 
     return grid
 
@@ -87,13 +90,13 @@ def get_random_nonwater_block_from_grid(grid):
 
 def gwendolina_speak():
     if game.flags["first_talked_to_gwendolina"] == False:
-        message = 'hello, golfer. my name is Gwendolina'
+        message = 'welcome to the desert of the real'
         game.flags["first_talked_to_gwendolina"] = True
     elif player.courses_completed == 1:
         message = 'you\'ve completed your first course! how charming'
         game.flags["can_shift_modes"] = True
     elif game.flags["first_talked_to_gwendolina"]:
-        message = 'good to see you again, golfer. press 2 to golf'
+        message = 'there is no going back. press 2 to golf'
         game.flags["can_shift_modes"] = True
     return message
 
@@ -211,7 +214,6 @@ def draw_golf():
     if game.flags["current_course_won"]:
         draw_text_box(screen=screen, message='you win! press space for results')
 
-
 def draw_rpg():
     for row in game.rpg_grid:
         for block in row:
@@ -226,7 +228,7 @@ def draw_menu():
     for row in game.menu_grid:
         for block in row:
             block.draw(screen)
- 
+
     two_color_gradient_anim(start_color=[0,96,128], end_color=[0,128,96], game=game)
 
     line_y = 0
