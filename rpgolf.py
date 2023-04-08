@@ -7,9 +7,9 @@ import opensimplex
 from rpgolf_util import *
 from rpgolf_class import *
 from rpgolf_const import *
+from rpgolf_resources import *
 
 pygame.init()
-pygame.mixer.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 screen.fill('blue')
 pygame.display.set_caption('rpgolf')
@@ -90,16 +90,21 @@ def get_random_nonwater_block_from_grid(grid):
     return random_block
 
 def gwendolina_speak():
+    message_list = []
+
     if game.flags["first_talked_to_gwendolina"] == False:
-        message = 'welcome to the desert of the real'
+        message_list.append('welcome to the desert of the real')
+        message_list.append('there is no going back')
         game.flags["first_talked_to_gwendolina"] = True
     elif player.courses_completed == 1:
-        message = 'you\'ve completed your first course! how charming'
+        message_list.append('you\'ve completed your first course!')
+        message_list.append('ow charming. press 2 to golf again')
         game.flags["can_shift_modes"] = True
     elif game.flags["first_talked_to_gwendolina"]:
-        message = 'there is no going back. press 2 to golf'
+        message_list.append('okay then. press 2 to golf')
         game.flags["can_shift_modes"] = True
-    return message
+
+    return message_list
 
 def omar_speak():
     if game.flags["first_talked_to_omar"] == False:
@@ -247,6 +252,11 @@ def update_golf():
 
     if game.flags["getting_ball_trajectory"] == False:
         if game.current_golf_course.grid[game.current_golf_course.new_ball_y][game.current_golf_course.new_ball_x].terrain in WATER_TERRAINS:
+            game.flags["ball_in_water"] = True
+
+            if not game.flags["sploosh_sound_played"]:
+                water_sploosh.play()
+                game.flags["sploosh_sound_played"] = True
             game.current_golf_course.ball_x, game.current_golf_course.ball_y = game.current_golf_course.tee_x, game.current_golf_course.tee_y
         elif game.current_golf_course.ball_x == game.current_golf_course.flag_x and game.current_golf_course.ball_y == game.current_golf_course.flag_y:
             game.flags["current_course_won"] = True
@@ -288,8 +298,9 @@ def draw_rpg():
 
     for each_npc in game.current_NPCs:
         if each_npc.talking:
-            message = each_npc.current_message
-            draw_text_box(screen=screen, message=message)
+            if each_npc.current_message_list:
+                message = each_npc.current_message_list[0]
+                draw_text_box(screen=screen, message=message)
 
     if game.flags["showing_status"]:
         draw_text_box(screen=screen, message=f'player exp: {player.exp} courses completed: {player.courses_completed}')
@@ -370,6 +381,7 @@ while True:
 
             if game.game_state == game.possible_game_states[0]:
                 if keys[pygame.K_1]:
+                    start_game_chime.play()
                     shift_to_rpg()
 
             ### RPG MODE ###
@@ -402,8 +414,13 @@ while True:
                 if keys[pygame.K_SPACE]:
                     for each_npc in game.current_NPCs:
                         if each_npc.talking:
-                            each_npc.talking = False
-                            game.flags["no_move"] = False
+                            if not each_npc.current_message_list:
+                                each_npc.talking = False
+                                game.flags["no_move"] = False
+                            else:
+                                each_npc.update_current_message()
+                                if not each_npc.current_message_list:
+                                    game.flags["no_move"] = False
                         elif not each_npc.talking:
                             if each_npc.current_block in player.get_neighbors(game.rpg_grid):
                                 each_npc.talking = True
@@ -417,7 +434,7 @@ while True:
                     player.current_block.content = player
 
                 if keys[pygame.K_2]:
-                    if game.flags["can_shift_modes"]:
+                    if game.flags["can_shift_modes"] and not game.flags["no_move"]:
                         shift_to_golf()
 
             ### GOLF MODE ###
@@ -437,6 +454,7 @@ while True:
                     if game.flags["current_course_won"]:
                         shift_to_results()
                     elif player.shot_power:
+                        game.flags["sploosh_sound_played"] = False
                         x_part, y_part = swing(power=player.shot_power,
                                                 ball_x=game.current_golf_course.ball_x, ball_y=game.current_golf_course.ball_y,
                                                 flag_x=game.current_golf_course.flag_x, flag_y = game.current_golf_course.flag_y)

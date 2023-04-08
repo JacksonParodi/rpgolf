@@ -26,7 +26,9 @@ class Game:
             "can_shift_modes": True,
             "current_course_won": False,
             "getting_ball_trajectory": False,
-            "showing_status": False
+            "showing_status": False,
+            "ball_in_water": False,
+            "sploosh_sound_played": False
             }
 
 class FracNoiseAlgo:
@@ -161,7 +163,7 @@ class NPC:
         self.current_block = None
         self.speak_func = speak_func
         self.talking = False
-        self.current_message = 'hello golfer'
+        self.current_message_list = None
         self.frame_count = 0
 
     def move(self, dx, dy, grid):
@@ -184,7 +186,10 @@ class NPC:
         surface.blit(self.img, (x, y))
 
     def update_current_message(self):
-        self.current_message = self.speak_func()
+        if not self.current_message_list:
+            self.current_message_list = self.speak_func()
+        else:
+            self.current_message_list.pop(0)
 
     def draw_speech(self, message, game):
         draw_message = game.font.render(message, False, 'white', 'black')
