@@ -13,7 +13,7 @@ class Game:
         self.all_golf_features = {}
         self.current_golf_course = None
         self.clock = pygame.time.Clock()
-        self.font = pygame.font.Font('C:\\Windows\\Fonts\\CascadiaMono.ttf', 16)
+        self.font = pygame.font.Font(None, 24)
         self.menu_grid = None
         self.menu_blocks_to_color = []
         self.new_blocks_to_color = []
