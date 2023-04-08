@@ -25,7 +25,8 @@ class Game:
             "no_move": False,
             "can_shift_modes": True,
             "current_course_won": False,
-            "getting_ball_trajectory": False
+            "getting_ball_trajectory": False,
+            "showing_status": False
             }
 
 class FracNoiseAlgo:
@@ -117,7 +118,7 @@ class Player:
         self.exp = 0
         self.last_earned_exp = 0
         self.current_block = None
-        self.shot_power = None
+        self.shot_power = 1
         self.current_stroke_count = 0
         self.current_course_difficulty = 0
         self.courses_completed = 0
@@ -131,6 +132,25 @@ class Player:
         self.last_earned_exp = exp_gained
         return exp_gained
 
+    def get_neighbors(self, grid):
+        """
+        returns list of Blocks neighboring player
+        """
+        neighbors = []
+        
+        if self.x < GRID_WIDTH - 2:
+            neighbors.append(grid[self.y][self.x+1])
+        if self.x > 1:
+            neighbors.append(grid[self.y][self.x-1])
+        if self.y < GRID_HEIGHT - 2:
+            neighbors.append(grid[self.y+1][self.x])
+        if self.y > 1:
+            neighbors.append(grid[self.y-1][self.x])
+        
+        return neighbors
+
+
+
     def draw(self, surface, x, y):
         surface.blit(self.img, (x, y))
 
@@ -142,6 +162,23 @@ class NPC:
         self.speak_func = speak_func
         self.talking = False
         self.current_message = 'hello golfer'
+        self.frame_count = 0
+
+    def move(self, dx, dy, grid):
+        new_x = self.current_block.x + dx
+        new_y = self.current_block.y + dy
+
+        if new_x < 0 or new_x >= GRID_WIDTH or new_y < 0 or new_y >= GRID_HEIGHT:
+            return False
+        
+        if grid[new_y][new_x].content or grid[new_y][new_x].terrain in WATER_TERRAINS:
+            return False
+        
+        self.current_block.content = None
+        grid[new_y][new_x].content = self
+        self.current_block = grid[new_y][new_x]
+        
+        return True
 
     def draw(self, surface, x, y):
         surface.blit(self.img, (x, y))

@@ -13,7 +13,8 @@ pygame.mixer.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 screen.fill('blue')
 pygame.display.set_caption('rpgolf')
-WATER_TERRAINS = ['ocean', 'deep_ocean']
+game = Game()
+player = Player()
 
 def gen_flat_grid():
     grid = []
@@ -111,20 +112,6 @@ def omar_speak():
 def shift_to_rpg():
     game.flags["no_move"] = False
     game.flags["can_shift_modes"] = False
-
-    game.rpg_grid = gen_country_club()
-
-    player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
-    player.x, player.y = player.current_block.x, player.current_block.y
-    player.current_block.content = player
-
-    if game.all_NPCs["gwendolina"] not in game.current_NPCs:
-        game.current_NPCs.append(game.all_NPCs["gwendolina"])
-    
-    game.current_NPCs[0].current_block = game.rpg_grid[(GRID_WIDTH // 2) + 4][GRID_HEIGHT // 2]
-    game.current_NPCs[0].x, game.current_NPCs[0].y = game.current_NPCs[0].current_block.x, game.current_NPCs[0].current_block.y
-    game.current_NPCs[0].current_block.content = game.current_NPCs[0]
-
     game.game_state = game.possible_game_states[1]
 
 def shift_to_golf():
@@ -190,8 +177,8 @@ def draw_results():
     draw_text_box(screen=screen, message=f'you won in {player.current_stroke_count} strokes and earned {player.last_earned_exp} exp! press backspace to return')
 
 def get_ball_trajectory_points(course):
-
-    """Bresenham's Line Algorithm
+    """
+    Bresenham's Line Algorithm
     Produces a list of tuples from start and end
 
     >>> points1 = get_line((0, 0), (3, 4))
@@ -247,16 +234,7 @@ def get_ball_trajectory_points(course):
         points.reverse()
     return points
 
-def draw_golf():
-    for row in game.current_golf_course.grid:
-        for block in row:
-            block.draw(screen)
-
-    game.current_golf_course.flag.draw(surface=screen, x=game.current_golf_course.flag_x, y=game.current_golf_course.flag_y)
-    game.current_golf_course.ball.draw(surface=screen, x=game.current_golf_course.ball_x, y=game.current_golf_course.ball_y)
-    if (game.current_golf_course.ball_x, game.current_golf_course.ball_y) != (game.current_golf_course.tee_x, game.current_golf_course.tee_y):
-        game.current_golf_course.tee.draw(surface=screen, x=game.current_golf_course.tee_x, y=game.current_golf_course.tee_y)
-
+def update_golf():
     if game.current_golf_course.ball_x == game.current_golf_course.new_ball_x and game.current_golf_course.ball_y == game.current_golf_course.new_ball_y:
         game.flags["getting_ball_trajectory"] = False
         game.current_golf_course.trajectory_frame_offset = 0
@@ -269,12 +247,23 @@ def draw_golf():
 
     if game.flags["getting_ball_trajectory"] == False:
         if game.current_golf_course.grid[game.current_golf_course.new_ball_y][game.current_golf_course.new_ball_x].terrain in WATER_TERRAINS:
-            print('in the drink')
             game.current_golf_course.ball_x, game.current_golf_course.ball_y = game.current_golf_course.tee_x, game.current_golf_course.tee_y
         elif game.current_golf_course.ball_x == game.current_golf_course.flag_x and game.current_golf_course.ball_y == game.current_golf_course.flag_y:
-            print('you win')
             game.flags["current_course_won"] = True
+            game.flags["getting_ball_trajectory"] = False
             game.flags["can_shift_modes"] = True
+
+    player.shot_power = clamp_to_int(input=player.shot_power, min_value=1, max_value=100)
+
+def draw_golf():
+    for row in game.current_golf_course.grid:
+        for block in row:
+            block.draw(screen)
+
+    game.current_golf_course.flag.draw(surface=screen, x=game.current_golf_course.flag_x, y=game.current_golf_course.flag_y)
+    game.current_golf_course.ball.draw(surface=screen, x=game.current_golf_course.ball_x, y=game.current_golf_course.ball_y)
+    if (game.current_golf_course.ball_x, game.current_golf_course.ball_y) != (game.current_golf_course.tee_x, game.current_golf_course.tee_y):
+        game.current_golf_course.tee.draw(surface=screen, x=game.current_golf_course.tee_x, y=game.current_golf_course.tee_y)
 
     if player.shot_power != None:
         draw_text_box(screen=screen, message=f'shot power = {player.shot_power}')
@@ -282,15 +271,28 @@ def draw_golf():
     if game.flags["current_course_won"]:
         draw_text_box(screen=screen, message='you win! press space for results')
 
+def update_rpg():
+    if not game.flags["no_move"]:
+        for each_npc in game.current_NPCs:
+            if each_npc.frame_count > 60:
+                rand_dx = random.randint(-1,1)
+                rand_dy = random.randint(-1,1)
+                each_npc.move(dx=rand_dx, dy=rand_dy, grid=game.rpg_grid)
+                each_npc.frame_count = 0
+            each_npc.frame_count += 1
+
 def draw_rpg():
     for row in game.rpg_grid:
         for block in row:
             block.draw(screen)
 
-    for NPC in game.current_NPCs:
-        if NPC.talking:
-            message = NPC.current_message
+    for each_npc in game.current_NPCs:
+        if each_npc.talking:
+            message = each_npc.current_message
             draw_text_box(screen=screen, message=message)
+
+    if game.flags["showing_status"]:
+        draw_text_box(screen=screen, message=f'player exp: {player.exp} courses completed: {player.courses_completed}')
 
 def draw_menu():
     for row in game.menu_grid:
@@ -325,20 +327,36 @@ def swing(power, ball_x, ball_y, flag_x, flag_y):
     y_part = int(round(math.sin(angle) * distance * (power / 100)))
     return (x_part, y_part)
 
-game = Game()
-player = Player()
-game.menu_grid = gen_menu_grid()
+def game_init(game, player):
+    game.menu_grid = gen_menu_grid()
+    game.rpg_grid = gen_country_club()
 
-game.all_golf_features = {
+    game.all_golf_features = {
                         "ball": GolfFeature(name="ball", img='assets/png/golf_ball.png'),
                         "flag": GolfFeature(name="flag", img='assets/png/flag.png'),
                         "tee": GolfFeature(name="tee", img='assets/png/tee.png')
                         }
 
-game.all_NPCs = {
-                "gwendolina": NPC(name="Gwendolina", img='assets/png/npc2.png', speak_func=gwendolina_speak),
-                "omar": NPC(name="Omar", img='assets/png/npc3.png', speak_func=omar_speak)
-                }
+    game.all_NPCs = {
+                    "gwendolina": NPC(name="Gwendolina", img='assets/png/npc2.png', speak_func=gwendolina_speak),
+                    "omar": NPC(name="Omar", img='assets/png/npc3.png', speak_func=omar_speak)
+                    }
+
+    player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
+    player.x, player.y = player.current_block.x, player.current_block.y
+    player.current_block.content = player
+
+    if not game.current_NPCs:
+        game.current_NPCs.append(game.all_NPCs["gwendolina"])
+        game.current_NPCs.append(game.all_NPCs["omar"])
+        
+    game.current_NPCs[0].current_block = game.rpg_grid[(GRID_WIDTH // 2) + 4][GRID_HEIGHT // 2]
+    game.current_NPCs[0].current_block.content = game.current_NPCs[0]
+
+    game.current_NPCs[1].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 4][GRID_HEIGHT // 2]
+    game.current_NPCs[1].current_block.content = game.current_NPCs[1]
+ 
+game_init(game, player)
 
 while True:
     for event in pygame.event.get():
@@ -360,6 +378,10 @@ while True:
                 new_player_x = player.x
                 new_player_y = player.y
 
+                if keys[pygame.K_i]:
+                    game.flags["showing_status"] = not game.flags["showing_status"]
+                    game.flags["no_move"] = game.flags["showing_status"]
+                        
                 if keys[pygame.K_UP]:
                     new_player_y -= 1
                     if new_player_y < 0:
@@ -376,19 +398,17 @@ while True:
                 if keys[pygame.K_RIGHT]:
                     new_player_x += 1
                     new_player_x = new_player_x % GRID_WIDTH
+
                 if keys[pygame.K_SPACE]:
                     for each_npc in game.current_NPCs:
                         if each_npc.talking:
                             each_npc.talking = False
                             game.flags["no_move"] = False
-                        elif each_npc.talking == False:
-                            for y in [-1,0,1]:
-                                for x in [-1,0,1]:
-                                    if game.rpg_grid[new_player_y + y][new_player_x + x].content:
-                                        if isinstance(game.rpg_grid[new_player_y + y][new_player_x + x].content, NPC):
-                                            game.rpg_grid[new_player_y + y][new_player_x + x].content.talking = True
-                                            game.rpg_grid[new_player_y + y][new_player_x + x].content.update_current_message()
-                                            game.flags["no_move"] = True
+                        elif not each_npc.talking:
+                            if each_npc.current_block in player.get_neighbors(game.rpg_grid):
+                                each_npc.talking = True
+                                each_npc.update_current_message()
+                                game.flags["no_move"] = True
 
                 if game.rpg_grid[new_player_y][new_player_x].terrain not in WATER_TERRAINS and game.rpg_grid[new_player_y][new_player_x].content == None and game.flags["no_move"] == False:
                     player.x, player.y = new_player_x, new_player_y
@@ -403,68 +423,24 @@ while True:
             ### GOLF MODE ###
 
             if game.game_state == game.possible_game_states[2]:
-                
-                if keys[pygame.K_KP_0]:
-                    if player.shot_power == None:
-                        player.shot_power = 0
-                    elif player.shot_power == 0:
-                        player.shot_power = 100
-                    elif player.shot_power >= 1 and player.shot_power <= 9:
-                        player.shot_power = player.shot_power * 10
-                if keys[pygame.K_KP1]:
-                    if player.shot_power == None:
-                        player.shot_power = 1
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 1
-                if keys[pygame.K_KP2]:
-                    if player.shot_power == None:
-                        player.shot_power = 2
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 2
-                if keys[pygame.K_KP3]:
-                    if player.shot_power == None:
-                        player.shot_power = 3
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 3
-                if keys[pygame.K_KP4]:
-                    if player.shot_power == None:
-                        player.shot_power = 4
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 4
-                if keys[pygame.K_KP5]:
-                    if player.shot_power == None:
-                        player.shot_power = 5
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 5
-                if keys[pygame.K_KP6]:
-                    if player.shot_power == None:
-                        player.shot_power = 6
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 6
-                if keys[pygame.K_KP7]:
-                    if player.shot_power == None:
-                        player.shot_power = 7
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 7
-                if keys[pygame.K_KP8]:
-                    if player.shot_power == None:
-                        player.shot_power = 8
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 8
-                if keys[pygame.K_KP9]:
-                    if player.shot_power == None:
-                        player.shot_power = 9
-                    elif player.shot_power >=0 and player.shot_power <= 9:
-                        player.shot_power = (player.shot_power * 10) + 9
+
+                if keys[pygame.K_UP]:
+                    player.shot_power += 1
+                if keys[pygame.K_DOWN]:
+                    player.shot_power -= 1
+                if keys[pygame.K_RIGHT]:
+                    player.shot_power += 10
+                if keys[pygame.K_LEFT]:
+                    player.shot_power -= 10         
 
                 if keys[pygame.K_SPACE]:
                     if game.flags["current_course_won"]:
                         shift_to_results()
-                    if player.shot_power:
+                    elif player.shot_power:
                         x_part, y_part = swing(power=player.shot_power,
                                                 ball_x=game.current_golf_course.ball_x, ball_y=game.current_golf_course.ball_y,
                                                 flag_x=game.current_golf_course.flag_x, flag_y = game.current_golf_course.flag_y)
-                        player.shot_power = None
+                        player.shot_power = 1
                         player.current_stroke_count += 1
 
                         game.current_golf_course.new_ball_x = game.current_golf_course.ball_x + x_part
@@ -476,8 +452,6 @@ while True:
 
                         game.current_golf_course.ball_trajectory_points = get_ball_trajectory_points(game.current_golf_course)
                         
-                        
-
             ### RESULTS MODE ###
 
             if game.game_state == game.possible_game_states[3]:
@@ -487,12 +461,13 @@ while True:
     if game.game_state == game.possible_game_states[0]:
         draw_menu()
     if game.game_state == game.possible_game_states[1]:
+        update_rpg()
         draw_rpg()
     if game.game_state == game.possible_game_states[2]:
+        update_golf()
         draw_golf()
     if game.game_state == game.possible_game_states[3]:
         draw_results()
 
-    print(game.flags["getting_ball_trajectory"])
     pygame.display.update()
     game.clock.tick(FPS)
