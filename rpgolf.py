@@ -4,17 +4,19 @@ import math
 import random
 import pygame
 import opensimplex
-from rpgolf_util import *
-from rpgolf_class import *
-from rpgolf_const import *
-from rpgolf_resources import *
+from util import *
+from classes import *
+from constants import *
+from resources import *
 
 pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-screen.fill('blue')
-pygame.display.set_caption('rpgolf')
 game = Game()
 player = Player()
+game.screen.fill('black')
+pygame.display.set_caption('rpgolf')
+
+pix_font = pygame.image.load('assets/png/font.png').convert_alpha()
+pix_font_rect = pix_font.get_rect()
 
 def gen_flat_grid():
     grid = []
@@ -165,21 +167,46 @@ def get_2color_gradient(start_color, end_color, steps):
     
     return gradient
 
-def draw_text_box(screen, message):
+def draw_font_char(char, x, y):
+    char = char.lower()
+    alphabet = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x','y','z']
+    numbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
+    symbols = ['!', '?', ':', ',', '.', ' ']
+    x_offset = 0
+    y_offset = 0
+
+    if char in alphabet:
+        x_offset = alphabet.index(char) * BLOCK_SIZE
+    if char in numbers:
+        x_offset = numbers.index(char) * BLOCK_SIZE
+        y_offset = 2 * BLOCK_SIZE
+    if char in symbols:
+        x_offset = symbols.index(char) * BLOCK_SIZE
+        y_offset = 4 * BLOCK_SIZE
+
+    selector_rect = pygame.Rect(0,0,BLOCK_SIZE,BLOCK_SIZE)
+    selector_rect.x  += x_offset
+    selector_rect.y += y_offset
+    game.screen.blit(pix_font, (x, y), area=selector_rect)
+
+def draw_text_box(message):
     text_surface = game.font.render(message, False, 'silver')
     text_rect = text_surface.get_rect()
     text_rect.center = (WIDTH // 2, HEIGHT // 2)
-    pygame.draw.rect(screen, 'black', (text_rect.left - 5, text_rect.top - 5, text_rect.width + 10, text_rect.height + 10))
-    screen.blit(text_surface, text_rect)
+    pygame.draw.rect(game.screen, 'black', (text_rect.left - 5, text_rect.top - 5, text_rect.width + 10, text_rect.height + 10))
+    game.screen.blit(text_surface, text_rect)
+
+def update_results():
+    pass
 
 def draw_results():
     for row in game.menu_grid:
         for block in row:
-            block.draw(screen)
+            block.draw(game.screen)
 
     two_color_gradient_anim(start_color=[128,0,0], end_color=[32,128,0], game=game)
 
-    draw_text_box(screen=screen, message=f'you won in {player.current_stroke_count} strokes and earned {player.last_earned_exp} exp! press backspace to return')
+    draw_text_box(message=f'you won in {player.current_stroke_count} strokes and earned {player.last_earned_exp} exp! press backspace to return')
 
 def get_ball_trajectory_points(course):
     """
@@ -268,18 +295,18 @@ def update_golf():
 def draw_golf():
     for row in game.current_golf_course.grid:
         for block in row:
-            block.draw(screen)
+            block.draw(game.screen)
 
-    game.current_golf_course.flag.draw(surface=screen, x=game.current_golf_course.flag_x, y=game.current_golf_course.flag_y)
-    game.current_golf_course.ball.draw(surface=screen, x=game.current_golf_course.ball_x, y=game.current_golf_course.ball_y)
+    game.current_golf_course.flag.draw(surface=game.screen, x=game.current_golf_course.flag_x, y=game.current_golf_course.flag_y)
+    game.current_golf_course.ball.draw(surface=game.screen, x=game.current_golf_course.ball_x, y=game.current_golf_course.ball_y)
     if (game.current_golf_course.ball_x, game.current_golf_course.ball_y) != (game.current_golf_course.tee_x, game.current_golf_course.tee_y):
-        game.current_golf_course.tee.draw(surface=screen, x=game.current_golf_course.tee_x, y=game.current_golf_course.tee_y)
+        game.current_golf_course.tee.draw(surface=game.screen, x=game.current_golf_course.tee_x, y=game.current_golf_course.tee_y)
 
     if player.shot_power != None:
-        draw_text_box(screen=screen, message=f'shot power = {player.shot_power}')
+        draw_text_box(message=f'shot power = {player.shot_power}')
 
     if game.flags["current_course_won"]:
-        draw_text_box(screen=screen, message='you win! press space for results')
+        draw_text_box(message='you win! press space for results')
 
 def update_rpg():
     if not game.flags["no_move"]:
@@ -294,30 +321,34 @@ def update_rpg():
 def draw_rpg():
     for row in game.rpg_grid:
         for block in row:
-            block.draw(screen)
+            block.draw(game.screen)
 
     for each_npc in game.current_NPCs:
         if each_npc.talking:
             if each_npc.current_message_list:
                 message = each_npc.current_message_list[0]
-                draw_text_box(screen=screen, message=message)
+                draw_text_box(message=message)
 
     if game.flags["showing_status"]:
-        draw_text_box(screen=screen, message=f'player exp: {player.exp} courses completed: {player.courses_completed}')
+        draw_text_box(message=f'player exp: {player.exp} courses completed: {player.courses_completed}')
+
+def update_menu():
+    pass
 
 def draw_menu():
     for row in game.menu_grid:
         for block in row:
-            block.draw(screen)
+            block.draw(game.screen)
 
     two_color_gradient_anim(start_color=[0,96,128], end_color=[0,128,96], game=game)
 
-    line_y = 0
-    for line in game.menu_text:
-        rendered_line = game.font.render(line, False, 'silver')
-        line_width, line_height = rendered_line.get_width(), rendered_line.get_height()
-        screen.blit(rendered_line, (((WIDTH // 2) - (line_width // 2)), ((HEIGHT // 2) + (2* line_y))))
-        line_y += line_height
+    y_step = 0
+    for str in game.menu_text:
+        x_step = 0
+        for char in str:
+            draw_font_char(char=char, x=(WIDTH // 2) + (x_step * BLOCK_SIZE), y=(HEIGHT // 2) + (y_step * BLOCK_SIZE))
+            x_step += 1
+        y_step += 4
 
 def two_color_gradient_anim(start_color, end_color, game):
 
@@ -477,6 +508,7 @@ while True:
                     shift_to_rpg()
 
     if game.game_state == game.possible_game_states[0]:
+        update_menu()
         draw_menu()
     if game.game_state == game.possible_game_states[1]:
         update_rpg()
@@ -485,6 +517,7 @@ while True:
         update_golf()
         draw_golf()
     if game.game_state == game.possible_game_states[3]:
+        update_results()
         draw_results()
 
     pygame.display.update()

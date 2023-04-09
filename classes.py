@@ -1,12 +1,13 @@
 import pygame
 import opensimplex
-from rpgolf_const import *
+from constants import *
 
 class Game:
     def __init__(self):
         self.possible_game_states = [0,1,2,3]
         # 0 = main menu / 1 = RPG / 2 = golf / 3 = results
         self.game_state = self.possible_game_states[0]
+        self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.menu_text = ['welcome to golfing', 'press 1 to golf']
         self.current_NPCs = []
         self.all_NPCs = {}
