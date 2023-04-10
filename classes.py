@@ -2,6 +2,10 @@ import pygame
 import opensimplex
 from constants import *
 
+#--------------------------------------------------
+#           CLASS DEFS
+#--------------------------------------------------
+
 class Game:
     def __init__(self):
         self.possible_game_states = [0,1,2,3]
@@ -10,14 +14,16 @@ class Game:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         self.menu_text = 'welcome to golfing\n\n\npress 1 to golf'
         self.current_NPCs = {}
-        self.current_rpg_features = {}
         self.all_NPCs = {}
+        self.current_rpg_features = {}
         self.all_rpg_features = {
                     "portal1": RPGfeature(name='portal1', img='assets/png/portal1.png', desc='a golf portal'),
                     "portal2": RPGfeature(name='portal2', img='assets/png/portal2.png', desc='another golf portal'),
                     "portal3": RPGfeature(name='portal3', img='assets/png/portal3.png', desc='yet another golf portal'),
                     "portal4": RPGfeature(name='portal4', img='assets/png/portal4.png', desc='just a golf portal')
                     }
+        self.all_store_items = {}
+        self.current_store_items = {}
         self.all_golf_features = {
                         "ball": GolfFeature(name="ball", img='assets/png/golf_ball.png'),
                         "flag": GolfFeature(name="flag", img='assets/png/flag.png'),
@@ -43,6 +49,19 @@ class Game:
             "sploosh_sound_played": False,
             "game_complete": False
             }
+
+class StoreItem():
+    def __init__(self, name, price, desc, effect_func):
+        self.name = name
+        self.price = price
+        self.desc = desc
+        self.effect = effect_func
+
+    def add_effect(self, player, game):
+        """
+        each item will have its effect on the player and/or game. this function will be called as needed for the effect to be applied
+        """
+        pass
 
 class FracNoiseAlgo:
     def __init__(self):
@@ -237,5 +256,3 @@ class GolfCourse:
         self.new_ball_x, self.new_ball_y = 0,0
         self.trajectory_frame_offset = 0
         self.ball_trajectory_points = []
-
-
