@@ -8,10 +8,21 @@ class Game:
         # 0 = main menu / 1 = RPG / 2 = golf / 3 = results
         self.game_state = self.possible_game_states[0]
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
-        self.menu_text = ['welcome to golfing', 'press 1 to golf']
-        self.current_NPCs = []
+        self.menu_text = 'welcome to golfing\n\n\npress 1 to golf'
+        self.current_NPCs = {}
+        self.current_rpg_features = {}
         self.all_NPCs = {}
-        self.all_golf_features = {}
+        self.all_rpg_features = {
+                    "portal1": RPGfeature(name='portal1', img='assets/png/portal1.png', desc='a golf portal'),
+                    "portal2": RPGfeature(name='portal2', img='assets/png/portal2.png', desc='another golf portal'),
+                    "portal3": RPGfeature(name='portal3', img='assets/png/portal3.png', desc='yet another golf portal'),
+                    "portal4": RPGfeature(name='portal4', img='assets/png/portal4.png', desc='just a golf portal')
+                    }
+        self.all_golf_features = {
+                        "ball": GolfFeature(name="ball", img='assets/png/golf_ball.png'),
+                        "flag": GolfFeature(name="flag", img='assets/png/flag.png'),
+                        "tee": GolfFeature(name="tee", img='assets/png/tee.png')
+                        }
         self.current_golf_course = None
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 24)
@@ -29,7 +40,8 @@ class Game:
             "getting_ball_trajectory": False,
             "showing_status": False,
             "ball_in_water": False,
-            "sploosh_sound_played": False
+            "sploosh_sound_played": False,
+            "game_complete": False
             }
 
 class FracNoiseAlgo:
@@ -157,6 +169,17 @@ class Player:
     def draw(self, surface, x, y):
         surface.blit(self.img, (x, y))
 
+class RPGfeature:
+    def __init__(self, name, img, desc):
+        self.name = name
+        self.img = pygame.image.load(img).convert_alpha()
+        self.current_block = None
+        self.desc = desc
+        self.describing = False
+    
+    def draw(self, surface, x, y):
+        surface.blit(self.img, (x, y))
+
 class NPC:
     def __init__(self, name, img, speak_func):
         self.name = name
@@ -164,8 +187,11 @@ class NPC:
         self.current_block = None
         self.speak_func = speak_func
         self.talking = False
-        self.current_message_list = None
+        self.current_message = 'default'
         self.frame_count = 0
+
+    def update_speak(self):
+        self.current_message = self.speak_func()
 
     def move(self, dx, dy, grid):
         new_x = self.current_block.x + dx
@@ -185,12 +211,6 @@ class NPC:
 
     def draw(self, surface, x, y):
         surface.blit(self.img, (x, y))
-
-    def update_current_message(self):
-        if not self.current_message_list:
-            self.current_message_list = self.speak_func()
-        else:
-            self.current_message_list.pop(0)
 
     def draw_speech(self, message, game):
         draw_message = game.font.render(message, False, 'white', 'black')
@@ -217,3 +237,5 @@ class GolfCourse:
         self.new_ball_x, self.new_ball_y = 0,0
         self.trajectory_frame_offset = 0
         self.ball_trajectory_points = []
+
+

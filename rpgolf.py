@@ -92,28 +92,30 @@ def get_random_nonwater_block_from_grid(grid):
     return random_block
 
 def gwendolina_speak():
-    message_list = []
+    message = 'good to see you, golfer'
 
-    if game.flags["first_talked_to_gwendolina"] == False:
-        message_list.append('welcome to the desert of the real')
-        message_list.append('there is no going back')
+    if player.courses_completed >= 4:
+        message = 'you might have what it takes\n\ngood work'
+        game.flags["game_complete"] = True
+    elif game.flags["first_talked_to_gwendolina"] == False:
+        message = 'welcome to the desert of the real\n\nthere is no going back'
         game.flags["first_talked_to_gwendolina"] = True
     elif player.courses_completed == 1:
-        message_list.append('you\'ve completed your first course!')
-        message_list.append('ow charming. press 2 to golf again')
-        game.flags["can_shift_modes"] = True
+        message = 'you\'ve completed your first course! impressive'
     elif game.flags["first_talked_to_gwendolina"]:
-        message_list.append('okay then. press 2 to golf')
-        game.flags["can_shift_modes"] = True
-
-    return message_list
+        message = 'it is good to see you, golfer'
+    
+    return message
 
 def omar_speak():
-    if game.flags["first_talked_to_omar"] == False:
-        message = 'hey, golfer. i\'m omar'
+    message = 'hey, golfer'
+
+    if not game.flags["first_talked_to_omar"]:
+        message = 'hey, golfer. i am omar'
         game.flags["first_talked_to_omar"] = True
     elif game.flags["first_talked_to_omar"]:
-        message = 'what\'s up, golfer'
+        message = 'what is up, golfer'
+
     return message
 
 def shift_to_rpg():
@@ -126,7 +128,7 @@ def shift_to_golf():
     player.current_stroke_count = 0
     player.current_course_difficulty = 0
 
-    for each_npc in game.current_NPCs:
+    for each_npc in game.current_NPCs.values():
         each_npc.talking = False
     
     grid = gen_fnoise_grid()
@@ -187,7 +189,38 @@ def draw_font_char(char, x, y):
     selector_rect = pygame.Rect(0,0,BLOCK_SIZE,BLOCK_SIZE)
     selector_rect.x  += x_offset
     selector_rect.y += y_offset
-    game.screen.blit(pix_font, (x, y), area=selector_rect)
+    dest_rect = pygame.Rect(x,y,BLOCK_SIZE, BLOCK_SIZE)
+    dest_rect.center = (x,y)
+    game.screen.blit(pix_font, dest_rect, area=selector_rect)
+
+def draw_font_message(message, x, y):
+        """
+        parameters:
+            message (str)
+            x (int)
+            y (int)
+        """
+        message_list = message.splitlines()
+
+        lines = len(message_list)
+        chars_wide = 0
+        for line in message_list:
+            if len(line) > chars_wide:
+                chars_wide = len(line)
+        
+        text_box_bg = pygame.Rect(0, 0, (chars_wide * BLOCK_SIZE) + (2 * BLOCK_SIZE), (lines * BLOCK_SIZE) + (2 * BLOCK_SIZE))
+        text_box_bg.center = x, y
+        pygame.draw.rect(game.screen, 'black', text_box_bg)
+
+        x, y = (x - ((BLOCK_SIZE // 2) * chars_wide)), (y - ((BLOCK_SIZE // 2) * (lines - 1)))
+
+        y_step = 0
+        for line in message_list:
+            x_step = 0
+            for char in line:
+                draw_font_char(char=char, x=x + (x_step * BLOCK_SIZE), y=y + (y_step * BLOCK_SIZE))
+                x_step += 1
+            y_step += 1
 
 def draw_text_box(message):
     text_surface = game.font.render(message, False, 'silver')
@@ -206,7 +239,10 @@ def draw_results():
 
     two_color_gradient_anim(start_color=[128,0,0], end_color=[32,128,0], game=game)
 
-    draw_text_box(message=f'you won in {player.current_stroke_count} strokes and earned {player.last_earned_exp} exp! press backspace to return')
+    if game.flags["game_complete"]:
+        draw_font_message(message='wow you won', x=WIDTH // 2, y=HEIGHT // 2)
+    else:
+        draw_text_box(message=f'you won in {player.current_stroke_count} strokes and earned {player.last_earned_exp} exp! press backspace to return')
 
 def get_ball_trajectory_points(course):
     """
@@ -310,8 +346,10 @@ def draw_golf():
 
 def update_rpg():
     if not game.flags["no_move"]:
-        for each_npc in game.current_NPCs:
-            if each_npc.frame_count > 60:
+        if game.flags["game_complete"]:
+            shift_to_results()
+        for each_npc in game.current_NPCs.values():
+            if each_npc.frame_count > 240:
                 rand_dx = random.randint(-1,1)
                 rand_dy = random.randint(-1,1)
                 each_npc.move(dx=rand_dx, dy=rand_dy, grid=game.rpg_grid)
@@ -323,11 +361,13 @@ def draw_rpg():
         for block in row:
             block.draw(game.screen)
 
-    for each_npc in game.current_NPCs:
+    for each_npc in game.current_NPCs.values():
         if each_npc.talking:
-            if each_npc.current_message_list:
-                message = each_npc.current_message_list[0]
-                draw_text_box(message=message)
+            draw_font_message(message=each_npc.current_message, x=WIDTH // 2, y=BLOCK_SIZE * 8)
+
+    for each_feature in game.current_rpg_features.values():
+        if each_feature.describing:
+            draw_font_message(message=each_feature.desc, x=WIDTH // 2, y=BLOCK_SIZE * 8)
 
     if game.flags["showing_status"]:
         draw_text_box(message=f'player exp: {player.exp} courses completed: {player.courses_completed}')
@@ -342,13 +382,7 @@ def draw_menu():
 
     two_color_gradient_anim(start_color=[0,96,128], end_color=[0,128,96], game=game)
 
-    y_step = 0
-    for str in game.menu_text:
-        x_step = 0
-        for char in str:
-            draw_font_char(char=char, x=(WIDTH // 2) + (x_step * BLOCK_SIZE), y=(HEIGHT // 2) + (y_step * BLOCK_SIZE))
-            x_step += 1
-        y_step += 4
+    draw_font_message(message=game.menu_text, x=(WIDTH // 2), y=(HEIGHT // 2))
 
 def two_color_gradient_anim(start_color, end_color, game):
 
@@ -373,31 +407,42 @@ def game_init(game, player):
     game.menu_grid = gen_menu_grid()
     game.rpg_grid = gen_country_club()
 
-    game.all_golf_features = {
-                        "ball": GolfFeature(name="ball", img='assets/png/golf_ball.png'),
-                        "flag": GolfFeature(name="flag", img='assets/png/flag.png'),
-                        "tee": GolfFeature(name="tee", img='assets/png/tee.png')
-                        }
+    # game.all_golf_features = 
 
     game.all_NPCs = {
                     "gwendolina": NPC(name="Gwendolina", img='assets/png/npc2.png', speak_func=gwendolina_speak),
                     "omar": NPC(name="Omar", img='assets/png/npc3.png', speak_func=omar_speak)
                     }
 
+
     player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
     player.x, player.y = player.current_block.x, player.current_block.y
     player.current_block.content = player
 
-    if not game.current_NPCs:
-        game.current_NPCs.append(game.all_NPCs["gwendolina"])
-        game.current_NPCs.append(game.all_NPCs["omar"])
-        
-    game.current_NPCs[0].current_block = game.rpg_grid[(GRID_WIDTH // 2) + 4][GRID_HEIGHT // 2]
-    game.current_NPCs[0].current_block.content = game.current_NPCs[0]
+    game.current_NPCs["gwendolina"] = game.all_NPCs["gwendolina"]
+    game.current_NPCs["gwendolina"].current_block = game.rpg_grid[GRID_WIDTH // 2][(GRID_HEIGHT // 2) + 4]
+    game.current_NPCs["gwendolina"].current_block.content = game.current_NPCs["gwendolina"]
+    
+    game.current_NPCs["omar"] = game.all_NPCs["omar"]
+    game.current_NPCs["omar"].current_block = game.rpg_grid[GRID_WIDTH // 2][(GRID_HEIGHT // 2) - 4]
+    game.current_NPCs["omar"].current_block.content = game.current_NPCs["omar"]
 
-    game.current_NPCs[1].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 4][GRID_HEIGHT // 2]
-    game.current_NPCs[1].current_block.content = game.current_NPCs[1]
- 
+    game.current_rpg_features["portal1"] = game.all_rpg_features["portal1"]
+    game.current_rpg_features["portal1"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) - 6]
+    game.current_rpg_features["portal1"].current_block.content = game.current_rpg_features["portal1"]
+
+    game.current_rpg_features["portal2"] = game.all_rpg_features["portal2"]
+    game.current_rpg_features["portal2"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) - 2]
+    game.current_rpg_features["portal2"].current_block.content = game.current_rpg_features["portal2"]
+
+    game.current_rpg_features["portal3"] = game.all_rpg_features["portal3"]
+    game.current_rpg_features["portal3"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) + 2]
+    game.current_rpg_features["portal3"].current_block.content = game.current_rpg_features["portal3"]
+
+    game.current_rpg_features["portal4"] = game.all_rpg_features["portal4"]
+    game.current_rpg_features["portal4"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) + 6]
+    game.current_rpg_features["portal4"].current_block.content = game.current_rpg_features["portal4"]
+
 game_init(game, player)
 
 while True:
@@ -443,20 +488,32 @@ while True:
                     new_player_x = new_player_x % GRID_WIDTH
 
                 if keys[pygame.K_SPACE]:
-                    for each_npc in game.current_NPCs:
+                    for each_npc in game.current_NPCs.values():
                         if each_npc.talking:
-                            if not each_npc.current_message_list:
-                                each_npc.talking = False
-                                game.flags["no_move"] = False
-                            else:
-                                each_npc.update_current_message()
-                                if not each_npc.current_message_list:
-                                    game.flags["no_move"] = False
+                            each_npc.talking = False
+                            game.flags["no_move"] = False
                         elif not each_npc.talking:
                             if each_npc.current_block in player.get_neighbors(game.rpg_grid):
+                                each_npc.update_speak()
                                 each_npc.talking = True
-                                each_npc.update_current_message()
                                 game.flags["no_move"] = True
+                    for each_feature in game.current_rpg_features.values():
+                        if each_feature.describing:
+                            each_feature.describing = False
+                            game.flags["no_move"] = False
+                        elif not each_feature.describing:
+                            if each_feature.current_block in player.get_neighbors(game.rpg_grid):
+                                each_feature.describing = True
+                                game.flags["no_move"] = True
+
+                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal1"]:
+                    shift_to_golf()
+                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal2"] and player.courses_completed >= 1:
+                    shift_to_golf()
+                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal3"] and player.courses_completed >= 2:
+                    shift_to_golf()
+                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal4"] and player.courses_completed >= 3:
+                    shift_to_golf()
 
                 if game.rpg_grid[new_player_y][new_player_x].terrain not in WATER_TERRAINS and game.rpg_grid[new_player_y][new_player_x].content == None and game.flags["no_move"] == False:
                     player.x, player.y = new_player_x, new_player_y
