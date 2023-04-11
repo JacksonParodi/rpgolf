@@ -1,95 +1,37 @@
-import sys
-import time
-import math
-import random
 import pygame
-import opensimplex
 from util import *
-from classes import *
+from sound import *
 from constants import *
-from resources import *
 
-#--------------------------------------------------
-#           GAME INITS
-#--------------------------------------------------
 
 pygame.init()
+pygame.display.set_caption('rpgolf')
+pygame.display.set_mode((WIDTH, HEIGHT))
+
+from game import Game
+from player import Player
+from block import TerrainBlock,ColorBlock,FracNoiseAlgo
+import golf
+from golf import GolfCourse
+
 game = Game()
 player = Player()
+pygame.key.set_repeat(200,200)
 game.screen.fill('black')
-pygame.display.set_caption('rpgolf')
-
-pix_font = pygame.image.load('assets/png/font.png').convert_alpha()
-pix_font_rect = pix_font.get_rect()
-
-def game_init(game, player):
-    game.menu_grid = gen_menu_grid()
-    game.rpg_grid = gen_country_club()
-
-    game.all_NPCs = {
-                    "gwendolina": NPC(name="Gwendolina", img='assets/png/npc2.png', speak_func=gwendolina_speak),
-                    "omar": NPC(name="Omar", img='assets/png/npc3.png', speak_func=omar_speak)
-                    }
-    
-    game.all_store_items = {
-                            "woodclub": StoreItem(name="Wooden Club", price=10, desc='a plain club', effect_func=woodclub_effect),
-                            "bronzeclub": StoreItem(name="Bronze Club", price=25, desc='a dull club', effect_func=bronzeclub_effect),
-                            "ironclub": StoreItem(name="Iron Club", price=50, desc='a stout club', effect_func=ironclub_effect)
-                            }
-
-    game.current_store_items = {
-                            "woodclub": game.all_store_items["woodclub"],
-                            "bronzeclub": game.all_store_items["bronzeclub"],
-                            "ironclub": game.all_store_items["ironclub"]
-                            }
-
-    player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
-    player.x, player.y = player.current_block.x, player.current_block.y
-    player.current_block.content = player
-
-    game.current_NPCs["gwendolina"] = game.all_NPCs["gwendolina"]
-    game.current_NPCs["gwendolina"].current_block = game.rpg_grid[GRID_WIDTH // 2][(GRID_HEIGHT // 2) + 4]
-    game.current_NPCs["gwendolina"].current_block.content = game.current_NPCs["gwendolina"]
-    
-    game.current_NPCs["omar"] = game.all_NPCs["omar"]
-    game.current_NPCs["omar"].current_block = game.rpg_grid[GRID_WIDTH // 2][(GRID_HEIGHT // 2) - 4]
-    game.current_NPCs["omar"].current_block.content = game.current_NPCs["omar"]
-
-    game.current_rpg_features["portal1"] = game.all_rpg_features["portal1"]
-    game.current_rpg_features["portal1"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) - 6]
-    game.current_rpg_features["portal1"].current_block.content = game.current_rpg_features["portal1"]
-
-    game.current_rpg_features["portal2"] = game.all_rpg_features["portal2"]
-    game.current_rpg_features["portal2"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) - 2]
-    game.current_rpg_features["portal2"].current_block.content = game.current_rpg_features["portal2"]
-
-    game.current_rpg_features["portal3"] = game.all_rpg_features["portal3"]
-    game.current_rpg_features["portal3"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) + 2]
-    game.current_rpg_features["portal3"].current_block.content = game.current_rpg_features["portal3"]
-
-    game.current_rpg_features["portal4"] = game.all_rpg_features["portal4"]
-    game.current_rpg_features["portal4"].current_block = game.rpg_grid[(GRID_WIDTH // 2) - 8][(GRID_HEIGHT // 2) + 6]
-    game.current_rpg_features["portal4"].current_block.content = game.current_rpg_features["portal4"]
 
 #--------------------------------------------------
 #           GRID GEN
 #--------------------------------------------------
 
-def gen_flat_grid():
+def generate_grid(terrain=False):
     grid = []
     for y in range(0, GRID_HEIGHT):
         row = []
         for x in range(0, GRID_WIDTH):
-            row.append(Block(x=x, y=y))
-        grid.append(row)
-    return grid
-
-def gen_menu_grid():
-    grid = []
-    for y in range(0, GRID_HEIGHT):
-        row = []
-        for x in range(0, GRID_WIDTH):
-            row.append(MenuBlock(x=x, y=y))
+            if terrain:
+                row.append(TerrainBlock(x=x, y=y))
+            else:
+                row.append(ColorBlock(x=x, y=y))
         grid.append(row)
     return grid
 
@@ -109,26 +51,14 @@ def gen_fnoise_grid():
                 t_freq *= fnoise.lacunarity
                 t_amp *= fnoise.persistence
             heat = clamp_to_int(elevation, fnoise.min_block_heat, fnoise.max_block_heat)
-            row.append(Block(x=x, y=y, heat=heat))
+            row.append(TerrainBlock(x=x, y=y, heat=heat))
         grid.append(row)
     return grid
 
-def gen_country_club():
-    grid = gen_flat_grid()
-
-    for row in grid:
-        for block in row:
-            block.heat = MAX_BLOCK_HEAT // 2
-            if block.x in range(4) or block.x in range((GRID_WIDTH - 4), GRID_WIDTH) or block.y in range(4) or block.y in range((GRID_HEIGHT - 4), GRID_HEIGHT):
-                block.heat = 1
-                block.heat_update()
-
-    return grid
-
 def gen_golf_features(course):
-    game.current_golf_course.tee = game.all_golf_features["tee"]
-    game.current_golf_course.ball = game.all_golf_features["ball"]
-    game.current_golf_course.flag = game.all_golf_features["flag"]
+    game.current_golf_course.tee = golf.all_golf_features["tee"]
+    game.current_golf_course.ball = golf.all_golf_features["ball"]
+    game.current_golf_course.flag = golf.all_golf_features["flag"]
 
     tee_block = get_random_nonwater_block_from_grid(course.grid)
     flag_block = get_random_nonwater_block_from_grid(course.grid)
@@ -143,7 +73,7 @@ def gen_golf_features(course):
 def get_random_nonwater_block_from_grid(grid):
     random_row = random.choice(grid)
     random_block = random.choice(random_row)
-    while random_block.terrain in WATER_TERRAINS or random_block.content:
+    while random_block.terrain in NOWALK_TERRAINS or random_block.content:
         random_row = random.choice(grid)
         random_block = random.choice(random_row)
     return random_block
@@ -185,52 +115,6 @@ def two_color_gradient_anim(start_color, end_color):
     game.gradient_frame_offset += 1
 
 #--------------------------------------------------
-#           NPC LOGIC
-#--------------------------------------------------
-
-def gwendolina_speak():
-    message = 'good to see you, golfer'
-
-    if player.courses_completed >= 4:
-        message = 'you might have what it takes\n\ngood work'
-        game.flags["game_complete"] = True
-    elif game.flags["first_talked_to_gwendolina"] == False:
-        message = 'welcome to the desert of the real\n\nthere is no going back'
-        game.flags["first_talked_to_gwendolina"] = True
-    elif player.courses_completed == 1:
-        message = 'you\'ve completed your first course! impressive'
-    elif game.flags["first_talked_to_gwendolina"]:
-        message = 'it is good to see you, golfer'
-    
-    return message
-
-def omar_speak():
-    message = 'hey, golfer'
-
-    if not game.flags["first_talked_to_omar"]:
-        message = 'hey, golfer. i am omar'
-        game.flags["first_talked_to_omar"] = True
-    elif game.flags["first_talked_to_omar"]:
-        message = 'you need gear? here is what i have.\n\n'
-        for item in game.current_store_items.values():
-            message += f'{item.name} for {str(item.price)}\n'
-
-    return message
-
-#--------------------------------------------------
-#           ITEM LOGIC
-#--------------------------------------------------
-
-def woodclub_effect():
-    pass
-
-def bronzeclub_effect():
-    pass
-
-def ironclub_effect():
-    pass
-
-#--------------------------------------------------
 #           TEXT
 #--------------------------------------------------
 
@@ -256,7 +140,7 @@ def draw_font_char(char, x, y):
     selector_rect.y += y_offset
     dest_rect = pygame.Rect(x,y,BLOCK_SIZE, BLOCK_SIZE)
     dest_rect.center = (x,y)
-    game.screen.blit(pix_font, dest_rect, area=selector_rect)
+    game.screen.blit(game.font, dest_rect, area=selector_rect)
 
 def draw_font_message(message, x=WIDTH // 2, y=HEIGHT // 2):
         """
@@ -391,6 +275,9 @@ def shift_to_results():
     player.earn_exp_from_course()
     player.courses_completed += 1
 
+    if game.flags["game_complete"]:
+        testend1.play(loops=-1)
+
     game.game_state = game.possible_game_states[3]
 
 #--------------------------------------------------
@@ -401,6 +288,8 @@ def update_menu():
     pass
 
 def update_rpg():
+    game.update_current_room()
+
     if not game.flags["no_move"]:
         if game.flags["game_complete"]:
             shift_to_results()
@@ -424,7 +313,7 @@ def update_golf():
             game.current_golf_course.trajectory_frame_offset += 1
 
     if game.flags["getting_ball_trajectory"] == False:
-        if game.current_golf_course.grid[game.current_golf_course.new_ball_y][game.current_golf_course.new_ball_x].terrain in WATER_TERRAINS:
+        if game.current_golf_course.grid[game.current_golf_course.new_ball_y][game.current_golf_course.new_ball_x].terrain in NOWALK_TERRAINS:
             game.flags["ball_in_water"] = True
 
             if not game.flags["sploosh_sound_played"]:
@@ -441,7 +330,6 @@ def update_golf():
 def update_results():
     pass
 
-
 #--------------------------------------------------
 #           STATE DRAWS
 #--------------------------------------------------
@@ -456,10 +344,19 @@ def draw_menu():
     draw_font_message(message=game.menu_text, x=(WIDTH // 2), y=(HEIGHT // 2))
 
 def draw_rpg():
-    for row in game.rpg_grid:
-        for block in row:
+    for (block_row, color_row) in zip(game.rpg_grid, game.current_room.color_grid):
+        for (block, color) in zip(block_row, color_row):
+            block.color = color
             block.draw(game.screen)
 
+    player.draw(game.screen, player.current_block.x * BLOCK_SIZE, player.current_block.y * BLOCK_SIZE)
+
+    for each_npc in game.current_NPCs.values():
+        each_npc.draw(game.screen, each_npc.current_block.x * BLOCK_SIZE, each_npc.current_block.y * BLOCK_SIZE)
+
+    for feature in game.current_rpg_features.values():
+        feature.draw(game.screen, feature.current_block.x * BLOCK_SIZE, feature.current_block.y * BLOCK_SIZE)
+    
     for each_npc in game.current_NPCs.values():
         if each_npc.talking:
             draw_font_message(message=each_npc.current_message, x=WIDTH // 2, y=BLOCK_SIZE * 8)
@@ -505,7 +402,19 @@ def draw_results():
             s = 'strokes'
         draw_font_message(message=f'you won in {player.current_stroke_count} {s}\n\nyou earned {player.last_earned_exp} exp!\n\npress backspace to return')
 
-game_init(game, player)
+#--------------------------------------------------
+#           GAME INIT
+#--------------------------------------------------
+
+def initial_game_conditions(game, player):
+    game.menu_grid = generate_grid()
+    game.rpg_grid = generate_grid()
+
+    player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
+    player.current_block.x, player.current_block.y = player.current_block.x, player.current_block.y
+    player.current_block.content = player
+
+initial_game_conditions(game, player)
 
 #--------------------------------------------------
 #           MAIN LOOP
@@ -527,15 +436,18 @@ while True:
                 if keys[pygame.K_1]:
                     start_game_chime.play()
                     shift_to_rpg()
+                
+                if keys[pygame.K_2]:
+                    shift_to_golf()
 
 #--------------------------------------------------
 #           RPG CONTROLS
 #--------------------------------------------------
 
             if game.game_state == game.possible_game_states[1]:
-                new_player_x = player.x
-                new_player_y = player.y
-
+                new_player_x = player.current_block.x
+                new_player_y = player.current_block.y
+                
                 if keys[pygame.K_i]:
                     game.flags["showing_status"] = not game.flags["showing_status"]
                     game.flags["no_move"] = game.flags["showing_status"]
@@ -544,18 +456,27 @@ while True:
                     new_player_y -= 1
                     if new_player_y < 0:
                         new_player_y += GRID_HEIGHT
+                        game.current_overworld_idx[0] -= 1
                     new_player_y = new_player_y % GRID_HEIGHT
                 if keys[pygame.K_DOWN]:
                     new_player_y += 1
-                    new_player_y = new_player_y % GRID_HEIGHT
+                    if new_player_y > GRID_HEIGHT - 1:
+                        game.current_overworld_idx[0] += 1
+                        new_player_y = 0
                 if keys[pygame.K_LEFT]:
                     new_player_x -= 1  
                     if new_player_x < 0:
                         new_player_x += GRID_WIDTH
+                        game.current_overworld_idx[1] -= 1
                     new_player_x = new_player_x % GRID_WIDTH                 
                 if keys[pygame.K_RIGHT]:
                     new_player_x += 1
-                    new_player_x = new_player_x % GRID_WIDTH
+                    if new_player_x > GRID_WIDTH - 1:
+                        game.current_overworld_idx[1] += 1
+                        new_player_x = 0
+                
+                update_rpg()
+                draw_rpg()
 
                 if keys[pygame.K_SPACE]:
                     for each_npc in game.current_NPCs.values():
@@ -571,24 +492,13 @@ while True:
                         if each_feature.describing:
                             each_feature.describing = False
                             game.flags["no_move"] = False
-                        elif not each_feature.describing:
                             if each_feature.current_block in player.get_neighbors(game.rpg_grid):
                                 each_feature.describing = True
                                 game.flags["no_move"] = True
 
-                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal1"]:
-                    shift_to_golf()
-                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal2"] and player.courses_completed >= 1:
-                    shift_to_golf()
-                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal3"] and player.courses_completed >= 2:
-                    shift_to_golf()
-                if game.rpg_grid[new_player_y][new_player_x].content == game.current_rpg_features["portal4"] and player.courses_completed >= 3:
-                    shift_to_golf()
-
-                if game.rpg_grid[new_player_y][new_player_x].terrain not in WATER_TERRAINS and game.rpg_grid[new_player_y][new_player_x].content == None and game.flags["no_move"] == False:
-                    player.x, player.y = new_player_x, new_player_y
+                if game.rpg_grid[new_player_y][new_player_x].color not in NOWALK_COLORS and game.rpg_grid[new_player_y][new_player_x].content in [player, None] and game.flags["no_move"] == False:
                     player.current_block.content = None
-                    player.current_block = game.rpg_grid[new_player_y][new_player_x]
+                    player.current_block = game.rpg_grid[new_player_y][new_player_x]   
                     player.current_block.content = player
 
                 if keys[pygame.K_2]:
@@ -639,10 +549,9 @@ while True:
                     shift_to_rpg()
                 if game.flags["game_complete"] and game.flags["can_shift_modes"]:
                     if keys[pygame.K_r]:
-                        game = Game()
-                        player = Player()
+                        testend1.fadeout(2)
+                        initial_game_conditions(game, player)
                         shift_to_menu()
-                        game_init(game, player)
 
 #--------------------------------------------------
 #           STATE CHECKS

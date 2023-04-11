@@ -1,0 +1,33 @@
+from constants import *
+
+class StoreItem:
+    def __init__(self, name, price, desc):
+        self.name = name
+        self.price = price
+        self.desc = desc
+
+    def add_effect(self, player, game):
+        """
+        each item will have its effect on the player and/or game. this function will be called as needed for the effect to be applied
+        """
+        pass
+
+
+all_store_items = {
+            "woodclub": StoreItem(name="Wooden Club", price=10, desc='a plain club'),
+            "bronzeclub": StoreItem(name="Bronze Club", price=25, desc='a dull club'),
+            "ironclub": StoreItem(name="Iron Club", price=50, desc='a stout club')
+            }
+
+#--------------------------------------------------
+#           ITEM LOGIC
+#--------------------------------------------------
+
+def woodclub_effect():
+    pass
+
+def bronzeclub_effect():
+    pass
+
+def ironclub_effect():
+    pass
