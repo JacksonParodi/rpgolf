@@ -52,13 +52,13 @@ class TerrainBlock:
 
     def get_block_color(self, terrain):
         if terrain == 'deep_ocean':
-            color = 'darkblue'
+            color = PALETTE["dblu"]
         if terrain == 'ocean':
-            color = 'midnightblue'
+            color = PALETTE["mblu"]
         if terrain == 'beach':
-            color = 'tan'
+            color = PALETTE["tann"]
         if terrain == 'grassland':
-            color = 'forestgreen'
+            color = PALETTE["lgrn"]
         return color
 
     def get_block_terrain(self, heat):

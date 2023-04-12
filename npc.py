@@ -2,18 +2,19 @@ import pygame
 from constants import *
 
 class NPC:
-    def __init__(self, name, img, x=GRID_WIDTH // 2, y=GRID_HEIGHT // 2):
+    def __init__(self, name, img, speak_func=None, x=GRID_WIDTH // 2, y=GRID_HEIGHT // 2):
         self.name = name
         self.x = x
         self.y = y
         self.img = pygame.image.load(img).convert_alpha()
         self.current_block = None
         self.talking = False
-        self.current_message = self.update_speak()
+        self.speak_func = speak_func
+        self.current_message = ''
         self.frame_count = 0
 
     def update_speak(self):
-        pass
+        self.current_message = self.speak_func()
 
     def move(self, dx, dy, grid):
         new_x = self.current_block.x + dx
@@ -36,41 +37,6 @@ class NPC:
 
 
 all_NPCs = {
-            "gwendolina": NPC(name="Gwendolina", img='assets/png/npc2.png'),
-            "omar": NPC(name="Omar", img='assets/png/npc3.png')
-            }
-
-#--------------------------------------------------
-#           NPC LOGIC
-#--------------------------------------------------
-
-def gwendolina_speak():
-    message = 'good to see you, golfer'
-    return message
-
-    if player.courses_completed >= 4:
-        message = 'you might have what it takes\n\ngood work'
-        game.flags["game_complete"] = True
-    elif game.flags["first_talked_to_gwendolina"] == False:
-        message = 'welcome to the desert of the real\n\nthere is no going back'
-        game.flags["first_talked_to_gwendolina"] = True
-    elif player.courses_completed == 1:
-        message = 'you\'ve completed your first course! impressive'
-    elif game.flags["first_talked_to_gwendolina"]:
-        message = 'it is good to see you, golfer'
-    
-    
-
-def omar_speak():
-    message = 'hey, golfer'
-    return message
-
-    if not game.flags["first_talked_to_omar"]:
-        message = 'hey, golfer. i am omar'
-        game.flags["first_talked_to_omar"] = True
-    elif game.flags["first_talked_to_omar"]:
-        message = 'you need gear? here is what i have.\n\n'
-        for item in game.current_store_items.values():
-            message += f'{item.name} for {str(item.price)}\n'
-
-    
+        "gwendolina": NPC(name="Gwendolina", img='assets/png/npc2.png'),
+        "omar": NPC(name="Omar", img='assets/png/npc3.png')
+        }

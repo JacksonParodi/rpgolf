@@ -10,6 +10,7 @@ pygame.display.set_mode((WIDTH, HEIGHT))
 from game import Game
 from player import Player
 from block import TerrainBlock,ColorBlock,FracNoiseAlgo
+from npc import all_NPCs
 import golf
 from golf import GolfCourse
 
@@ -171,6 +172,39 @@ def draw_font_message(message, x=WIDTH // 2, y=HEIGHT // 2):
             y_step += 1
 
 #--------------------------------------------------
+#           NPC LOGIC
+#--------------------------------------------------
+
+def gwendolina_speak():
+    
+    message = 'good to see you, golfer'
+    
+    if player.courses_completed >= 4:
+        message = 'you might have what it takes\n\ngood work'
+        game.flags["game_complete"] = True
+    elif game.flags["first_talked_to_gwendolina"] == False:
+        message = 'welcome to the desert of the real\n\nthere is no going back'
+        game.flags["first_talked_to_gwendolina"] = True
+    elif player.courses_completed == 1:
+        message = 'you\'ve completed your first course! impressive'
+    elif game.flags["first_talked_to_gwendolina"]:
+        message = 'it is good to see you, golfer'
+
+    return message
+
+def omar_speak():
+    message = 'hey, golfer'
+    
+    if not game.flags["first_talked_to_omar"]:
+        message = 'hey, golfer. i am omar'
+        game.flags["first_talked_to_omar"] = True
+    elif game.flags["first_talked_to_omar"]:
+        message = 'you need gear? here is what i have.\n\n'
+        for item in game.current_store_items.values():
+            message += f'{item.name} for {str(item.price)}\n'
+
+    return message
+#--------------------------------------------------
 #           GOLF LOGIC
 #--------------------------------------------------
 
@@ -284,6 +318,12 @@ def shift_to_results():
 #--------------------------------------------------
 
 def change_room(new_x, new_y):
+    for npc in game.current_room.npcs:
+            npc.current_block.content = None
+
+    for feature in game.current_room.features:
+        feature.current_block.content = None
+
     game.current_overworld_idx = [new_y, new_x]
     game.update_current_room()
 
@@ -302,7 +342,7 @@ def update_rpg():
     if not game.flags["no_move"]:
         if game.flags["game_complete"]:
             shift_to_results()
-        for each_npc in game.current_NPCs.values():
+        for each_npc in game.current_room.npcs:
             if each_npc.frame_count > 240:
                 rand_dx = random.randint(-1,1)
                 rand_dy = random.randint(-1,1)
@@ -362,15 +402,11 @@ def draw_rpg():
 
     for each_npc in game.current_room.npcs:
         each_npc.draw(game.screen, each_npc.current_block.x * BLOCK_SIZE, each_npc.current_block.y * BLOCK_SIZE)
-
-    for feature in game.current_room.features:
-        feature.draw(game.screen, feature.current_block.x * BLOCK_SIZE, feature.current_block.y * BLOCK_SIZE)
-    
-    for each_npc in game.current_room.npcs:
         if each_npc.talking:
             draw_font_message(message=each_npc.current_message, x=WIDTH // 2, y=BLOCK_SIZE * 8)
 
-    for each_feature in game.current_room.features:
+    for feature in game.current_room.features:
+        feature.draw(game.screen, feature.current_block.x * BLOCK_SIZE, feature.current_block.y * BLOCK_SIZE)
         if each_feature.describing:
             draw_font_message(message=each_feature.desc, x=WIDTH // 2, y=BLOCK_SIZE * 8)
 
@@ -420,6 +456,9 @@ def initial_game_conditions(game, player):
     game.rpg_grid = generate_grid()
     change_room(new_x=game.current_overworld_idx[1], new_y=game.current_overworld_idx[0])
 
+    all_NPCs["gwendolina"].speak_func = gwendolina_speak
+    all_NPCs["omar"].speak_func = omar_speak
+
     player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
     player.current_block.content = player
 
@@ -464,28 +503,23 @@ while True:
                 if keys[pygame.K_UP]:
                     new_player_y -= 1
                     if new_player_y < 0:
-                        new_player_y += GRID_HEIGHT
                         change_room(new_x=game.current_overworld_idx[1], new_y=game.current_overworld_idx[0] - 1)
-                    new_player_y = new_player_y % GRID_HEIGHT
+                        new_player_y += GRID_HEIGHT
                 if keys[pygame.K_DOWN]:
                     new_player_y += 1
                     if new_player_y > GRID_HEIGHT - 1:
                         new_player_y = 0
                         change_room(new_x=game.current_overworld_idx[1], new_y=game.current_overworld_idx[0] + 1)
                 if keys[pygame.K_LEFT]:
-                    new_player_x -= 1  
+                    new_player_x -= 1
                     if new_player_x < 0:
-                        new_player_x += GRID_WIDTH
                         change_room(new_x=game.current_overworld_idx[1] - 1, new_y=game.current_overworld_idx[0])
-                    new_player_x = new_player_x % GRID_WIDTH
+                        new_player_x += GRID_WIDTH
                 if keys[pygame.K_RIGHT]:
                     new_player_x += 1
                     if new_player_x > GRID_WIDTH - 1:
                         new_player_x = 0
                         change_room(new_x=game.current_overworld_idx[1] + 1, new_y=game.current_overworld_idx[0])
-
-                print(game.current_room.x, game.current_room.y)
-
 
                 update_rpg()
                 draw_rpg()

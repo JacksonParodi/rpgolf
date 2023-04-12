@@ -40,4 +40,5 @@ for x in range(4):
         row.append(RPGRoom(x=x, y=y))
     OVERWORLD.append(row)
 
+OVERWORLD[0][0].npcs = [all_NPCs["omar"]]
 OVERWORLD[2][1].npcs = [all_NPCs["gwendolina"]]

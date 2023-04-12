@@ -24,7 +24,7 @@ class Game:
         """
         y, x for overworld idx
         """
-        self.current_overworld_idx = [2,2]
+        self.current_overworld_idx = [2,0]
         self.current_room = OVERWORLD[self.current_overworld_idx[1]][self.current_overworld_idx[0]]
         self.rpg_grid = None
         self.flags = {
