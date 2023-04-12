@@ -3,7 +3,6 @@ from util import *
 from sound import *
 from constants import *
 
-
 pygame.init()
 pygame.display.set_caption('rpgolf')
 pygame.display.set_mode((WIDTH, HEIGHT))
@@ -284,12 +283,22 @@ def shift_to_results():
 #           STATE UPDATES
 #--------------------------------------------------
 
+def change_room(new_x, new_y):
+    game.current_overworld_idx = [new_y, new_x]
+    game.update_current_room()
+
+    for npc in game.current_room.npcs:
+        npc.current_block = game.rpg_grid[npc.y][npc.x]
+        npc.current_block.content = npc
+
+    for feature in game.current_room.features:
+        feature.current_block = game.rpg_grid[feature.y][feature.x]
+        feature.current_block.content = feature
+
 def update_menu():
     pass
 
 def update_rpg():
-    game.update_current_room()
-
     if not game.flags["no_move"]:
         if game.flags["game_complete"]:
             shift_to_results()
@@ -351,17 +360,17 @@ def draw_rpg():
 
     player.draw(game.screen, player.current_block.x * BLOCK_SIZE, player.current_block.y * BLOCK_SIZE)
 
-    for each_npc in game.current_NPCs.values():
+    for each_npc in game.current_room.npcs:
         each_npc.draw(game.screen, each_npc.current_block.x * BLOCK_SIZE, each_npc.current_block.y * BLOCK_SIZE)
 
-    for feature in game.current_rpg_features.values():
+    for feature in game.current_room.features:
         feature.draw(game.screen, feature.current_block.x * BLOCK_SIZE, feature.current_block.y * BLOCK_SIZE)
     
-    for each_npc in game.current_NPCs.values():
+    for each_npc in game.current_room.npcs:
         if each_npc.talking:
             draw_font_message(message=each_npc.current_message, x=WIDTH // 2, y=BLOCK_SIZE * 8)
 
-    for each_feature in game.current_rpg_features.values():
+    for each_feature in game.current_room.features:
         if each_feature.describing:
             draw_font_message(message=each_feature.desc, x=WIDTH // 2, y=BLOCK_SIZE * 8)
 
@@ -409,9 +418,9 @@ def draw_results():
 def initial_game_conditions(game, player):
     game.menu_grid = generate_grid()
     game.rpg_grid = generate_grid()
+    change_room(new_x=game.current_overworld_idx[1], new_y=game.current_overworld_idx[0])
 
     player.current_block = game.rpg_grid[GRID_WIDTH // 2][GRID_HEIGHT // 2]
-    player.current_block.x, player.current_block.y = player.current_block.x, player.current_block.y
     player.current_block.content = player
 
 initial_game_conditions(game, player)
@@ -456,30 +465,33 @@ while True:
                     new_player_y -= 1
                     if new_player_y < 0:
                         new_player_y += GRID_HEIGHT
-                        game.current_overworld_idx[0] -= 1
+                        change_room(new_x=game.current_overworld_idx[1], new_y=game.current_overworld_idx[0] - 1)
                     new_player_y = new_player_y % GRID_HEIGHT
                 if keys[pygame.K_DOWN]:
                     new_player_y += 1
                     if new_player_y > GRID_HEIGHT - 1:
-                        game.current_overworld_idx[0] += 1
                         new_player_y = 0
+                        change_room(new_x=game.current_overworld_idx[1], new_y=game.current_overworld_idx[0] + 1)
                 if keys[pygame.K_LEFT]:
                     new_player_x -= 1  
                     if new_player_x < 0:
                         new_player_x += GRID_WIDTH
-                        game.current_overworld_idx[1] -= 1
-                    new_player_x = new_player_x % GRID_WIDTH                 
+                        change_room(new_x=game.current_overworld_idx[1] - 1, new_y=game.current_overworld_idx[0])
+                    new_player_x = new_player_x % GRID_WIDTH
                 if keys[pygame.K_RIGHT]:
                     new_player_x += 1
                     if new_player_x > GRID_WIDTH - 1:
-                        game.current_overworld_idx[1] += 1
                         new_player_x = 0
-                
+                        change_room(new_x=game.current_overworld_idx[1] + 1, new_y=game.current_overworld_idx[0])
+
+                print(game.current_room.x, game.current_room.y)
+
+
                 update_rpg()
                 draw_rpg()
 
                 if keys[pygame.K_SPACE]:
-                    for each_npc in game.current_NPCs.values():
+                    for each_npc in game.current_room.npcs:
                         if each_npc.talking:
                             each_npc.talking = False
                             game.flags["no_move"] = False
@@ -488,7 +500,7 @@ while True:
                                 each_npc.update_speak()
                                 each_npc.talking = True
                                 game.flags["no_move"] = True
-                    for each_feature in game.current_rpg_features.values():
+                    for each_feature in game.current_room.features:
                         if each_feature.describing:
                             each_feature.describing = False
                             game.flags["no_move"] = False

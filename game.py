@@ -21,7 +21,10 @@ class Game:
         self.menu_blocks_to_color = []
         self.new_blocks_to_color = []
         self.gradient_frame_offset = 0
-        self.current_overworld_idx = [0,0]
+        """
+        y, x for overworld idx
+        """
+        self.current_overworld_idx = [2,2]
         self.current_room = OVERWORLD[self.current_overworld_idx[1]][self.current_overworld_idx[0]]
         self.rpg_grid = None
         self.flags = {

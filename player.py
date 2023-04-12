@@ -27,15 +27,18 @@ class Player:
         returns list of Blocks neighboring player
         """
         neighbors = []
+
+        my_x = self.current_block.x
+        my_y = self.current_block.y
         
-        if self.x < GRID_WIDTH - 2:
-            neighbors.append(grid[self.y][self.x+1])
-        if self.x > 1:
-            neighbors.append(grid[self.y][self.x-1])
-        if self.y < GRID_HEIGHT - 2:
-            neighbors.append(grid[self.y+1][self.x])
-        if self.y > 1:
-            neighbors.append(grid[self.y-1][self.x])
+        if my_x < GRID_WIDTH - 2:
+            neighbors.append(grid[my_y][my_x+1])
+        if my_x > 1:
+            neighbors.append(grid[my_y][my_x-1])
+        if my_y < GRID_HEIGHT - 2:
+            neighbors.append(grid[my_y+1][my_x])
+        if my_y > 1:
+            neighbors.append(grid[my_y-1][my_x])
         
         return neighbors
 

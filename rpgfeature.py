@@ -1,8 +1,10 @@
 from constants import *
 
 class RPGFeature:
-    def __init__(self, name, img, desc):
+    def __init__(self, name, img, desc, x=GRID_WIDTH // 2, y=GRID_HEIGHT // 2):
         self.name = name
+        self.x = x
+        self.y = y
         self.img = pygame.image.load(img).convert_alpha()
         self.current_block = None
         self.desc = desc
